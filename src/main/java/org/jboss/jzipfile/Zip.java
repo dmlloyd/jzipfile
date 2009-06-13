@@ -54,7 +54,7 @@ public final class Zip {
     }
 
     /**
-     * Fid the zip catalog for the given file.  The returned input stream is positioned at the start of the zip
+     * Find the zip catalog for the given file.  The returned input stream is positioned at the start of the zip
      * directory structure.
      *
      * @param file the file to examine
@@ -62,44 +62,49 @@ public final class Zip {
      * @throws IOException if an I/O error occurs
      */
     public static InputStream findCatalog(File file) throws IOException {
+        boolean ok = false;
         final RandomAccessFile raf = new RandomAccessFile(file, "r");
-        final long len = raf.length();
-        if (len < 22L) {
-            throw new ZipException("The provided file is too short to hold even one end-of-central-directory record");
-        }
-        // First, check at len-22 in the (common) case that there is no zip file comment.
-        raf.seek(len - 22);
-        if (! catScan(raf, 0)) {
-            // OK, let's back off incrementally, starting from 64 bytes out and going up by a factor of 4 each time
-            int spos = 64;
-            int lim = 64 - 22;
-            raf.seek(len - 64);
-            while (! catScan(raf, lim)) {
-                int newSpos = spos << 2;
-                lim = newSpos - spos;
-                spos = newSpos;
-                if (spos >= 65536) try {
-                    throw new ZipException("No directory found");
-                } finally {
-                    safeClose(raf);
-                }
-                raf.seek(len - spos);
+        try {
+            final long len = raf.length();
+            if (len < 22L) {
+                throw new ZipException("The provided file is too short to hold even one end-of-central-directory record");
             }
+            // First, check at len-22 in the (common) case that there is no zip file comment.
+            raf.seek(len - 22);
+            if (! catScan(raf, 0)) {
+                // OK, let's back off incrementally, starting from 64 bytes out and going up by a factor of 4 each time
+                int spos = 64;
+                int lim = 64 - 22;
+                raf.seek(len - 64);
+                while (! catScan(raf, lim)) {
+                    int newSpos = spos << 2;
+                    lim = newSpos - spos;
+                    spos = newSpos;
+                    if (spos >= 65536) {
+                        throw new ZipException("No directory found");
+                    }
+                    raf.seek(len - spos);
+                }
+            }
+            // OK, the EOD was located.  Now read it to find the start of the directory
+            final int diskNo = Short.reverseBytes(raf.readShort()) & 0xffff; // disk #
+            final int cddNo = Short.reverseBytes(raf.readShort()) & 0xffff; // central dir disk #
+            final int diskEC = Short.reverseBytes(raf.readShort()) & 0xffff; // entry count in central dir # on this disk
+            final int totalEC = Short.reverseBytes(raf.readShort()) & 0xffff; // entry count in central dir #
+            if (diskNo != cddNo || cddNo != 0) {
+                throw new ZipException("Multi-disk zips not supported");
+            }
+            if (diskEC != totalEC) {
+                throw new ZipException("Entry count inconsistency in end-of-directory record");
+            }
+            raf.readInt(); // size of central dir
+            raf.seek(Integer.reverseBytes(raf.readInt())); // offset of central dir
+            final RandomAccessInputStream is = new RandomAccessInputStream(raf);
+            ok = true;
+            return is;
+        } finally {
+            if (! ok) safeClose(raf);
         }
-        // OK, the EOD was located.  Now read it to find the start of the directory
-        final int diskNo = Short.reverseBytes(raf.readShort()) & 0xffff; // disk #
-        final int cddNo = Short.reverseBytes(raf.readShort()) & 0xffff; // central dir disk #
-        final int diskEC = Short.reverseBytes(raf.readShort()) & 0xffff; // entry count in central dir # on this disk
-        final int totalEC = Short.reverseBytes(raf.readShort()) & 0xffff; // entry count in central dir #
-        if (diskNo != cddNo || cddNo != 0) {
-            throw new ZipException("Multi-disk zips not supported");
-        }
-        if (diskEC != totalEC) {
-            throw new ZipException("Entry count inconsistency in end-of-directory record");
-        }
-        raf.readInt(); // size of central dir
-        raf.seek(Integer.reverseBytes(raf.readInt())); // offset of central dir
-        return new RandomAccessInputStream(raf);
     }
 
     private static boolean catScan(DataInput input, int limit) throws IOException {
@@ -117,8 +122,8 @@ public final class Zip {
     }
 
     /**
-     * Read the zip catalog referred to by the given input stream.  The input stream should be pointed to the
-     * start of the catalog.  <b>Note:</b> the passed in
+     * Read the zip catalog referred to by the given input stream, which is pointed at the
+     * start of the catalog (also known as the "central directory").  <b>Note:</b> the passed in
      * {@code InputStream} will be used and closed by this method.
      *
      * @param inputStream the input stream from which to build a catalog
@@ -127,7 +132,7 @@ public final class Zip {
      */
     public static ZipCatalog readCatalog(InputStream inputStream) throws IOException {
         final ZipCatalogBuilder builder = new ZipCatalogBuilder();
-        builder.read(inputStream);
+        builder.readDirectory(inputStream);
         return builder.getZipCatalog();
     }
 
@@ -143,7 +148,9 @@ public final class Zip {
     }
 
     /**
-     * Open a zip entry.
+     * Open a zip entry, returning an input stream which may be used to read the contents of the
+     * entry.  Depending on how the entry is stored, the returned stream may or may not support
+     * {@code mark/reset}.
      *
      * @param zipFile the zip file to access
      * @param zipEntry the zip entry from that file
@@ -227,6 +234,9 @@ public final class Zip {
      * @throws IOException if an I/O error occurs
      */
     public static void extract(File zipFile, File destDir) throws IOException {
+        if (! destDir.isDirectory()) {
+            throw new IOException("Destination is not a directory");
+        }
         final byte[] buf = new byte[16384];
         final ZipCatalog catalog = readCatalog(zipFile);
         for (ZipEntry zipEntry : catalog.allEntries()) {
@@ -266,7 +276,7 @@ public final class Zip {
         }
     }
 
-    private static void safeClose(final Closeable closeable) {
+    static void safeClose(final Closeable closeable) {
         try {
             if (closeable != null) closeable.close();
         } catch (IOException e) {
