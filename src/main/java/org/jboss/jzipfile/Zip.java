@@ -173,25 +173,33 @@ public final class Zip {
      * @throws IOException if an I/O error occurs
      */
     public static InputStream openEntry(InputStream inputStream, ZipEntry zipEntry) throws IOException {
-        // read the local file header...
-        final ZipDataInputStream zdis = inputStream instanceof ZipDataInputStream ? (ZipDataInputStream) inputStream : new ZipDataInputStream(inputStream);
-        readLocalFile(zdis, zipEntry);
-        switch (zipEntry.getEntryType()) {
-            case FILE: break;
-            default: {
-                throw new ZipException("Attempt to open a zip entry with an unsupported type");
+        boolean ok = false;
+        try {
+            // read the local file header...
+            final ZipDataInputStream zdis = inputStream instanceof ZipDataInputStream ? (ZipDataInputStream) inputStream : new ZipDataInputStream(inputStream);
+            readLocalFile(zdis, zipEntry);
+            switch (zipEntry.getEntryType()) {
+                case FILE: break;
+                default: {
+                    throw new ZipException("Attempt to open a zip entry with an unsupported type");
+                }
             }
+            switch (zipEntry.getCompressionMethod()) {
+                case STORE: {
+                    final LimitedInputStream is = new LimitedInputStream(inputStream, zipEntry.getCompressedSize());
+                    ok = true;
+                    return is;
+                }
+                case DEFLATE: {
+                    final LimitedInputStream is = new LimitedInputStream(new InflaterInputStream(new LimitedInputStream(inputStream, zipEntry.getCompressedSize()), new Inflater(true)), zipEntry.getSize());
+                    ok = true;
+                    return is;
+                }
+            }
+            throw new ZipException("Unsupported compression algorithm " + zipEntry.getCompressionMethod());
+        } finally {
+            if (! ok) safeClose(inputStream);
         }
-        switch (zipEntry.getCompressionMethod()) {
-            case STORE: {
-                return new LimitedInputStream(inputStream, zipEntry.getCompressedSize());
-            }
-            case DEFLATE: {
-                final Inflater inflater = new Inflater(true);
-                return new LimitedInputStream(new InflaterInputStream(new LimitedInputStream(inputStream, zipEntry.getCompressedSize()), inflater), zipEntry.getSize());
-            }
-        }
-        throw new ZipException("Unsupported compression algorithm " + zipEntry.getCompressionMethod());
     }
 
     private static void readLocalFile(final ZipDataInputStream is, final ZipEntry entry) throws IOException {
