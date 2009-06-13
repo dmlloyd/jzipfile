@@ -63,9 +63,12 @@ final class ZipCatalogBuilder {
                 is.readUnsignedShort(); // gpbits
                 final ZipCompressionMethod method = ZipCompressionMethod.getMethod(is.readUnsignedShort());
                 int modTimeBytes = is.readUnsignedShort();
-                System.out.printf("Mod time bytes %d or %08x\n", modTimeBytes, modTimeBytes);
-                int modDateBytes = is.readUnsignedShort();
-                System.out.printf("Mod date bytes %d or %08x\n", modDateBytes, modDateBytes);
+                int modDateFirst = is.readUnsignedByte();
+                int year = 1980 + ((modDateFirst >> 1) & 0x7f);
+                int modDateSecond = is.readUnsignedByte();
+                int month = modDateFirst << 3 & 0x8 | modDateFirst >> 5;
+                int day = modDateSecond & 0x1f;
+
                 int crc32 = is.readInt();
                 int compSize = is.readInt();
                 int uncompSize = is.readInt();
