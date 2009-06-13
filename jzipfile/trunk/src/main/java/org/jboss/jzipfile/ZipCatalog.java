@@ -23,12 +23,25 @@
 package org.jboss.jzipfile;
 
 import java.util.Map;
+import java.util.Collection;
 
 /**
  * A zip file catalog.
  */
 public interface ZipCatalog {
+
+    /**
+     * Get all the named entries, indexed by name.  The returned hash map will return the names
+     * in the order that they were found in the file.  If a name occurs more than once, the first occurrence is used.
+     *
+     * @return the named entries
+     */
     Map<String, ZipEntry> indexedByName();
 
-    Iterable<ZipEntry> allEntries();
+    /**
+     * Get all the zip entries, including unnamed and duplicate entries, in the order they appear in the file.
+     *
+     * @return the entries
+     */
+    Collection<ZipEntry> allEntries();
 }

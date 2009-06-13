@@ -44,6 +44,8 @@ final class ZipCatalogBuilder {
     }
 
     void readDirectory(ZipDataInputStream is) throws IOException {
+        final List<ZipEntry> allEntries = this.allEntries;
+        final Map<String, ZipEntry> entryMap = this.entryMap;
         try {
             // Format:
             // central directory
@@ -61,7 +63,9 @@ final class ZipCatalogBuilder {
                 is.readUnsignedShort(); // gpbits
                 final ZipCompressionMethod method = ZipCompressionMethod.getMethod(is.readUnsignedShort());
                 int modTimeBytes = is.readUnsignedShort();
+                System.out.printf("Mod time bytes %d or %08x\n", modTimeBytes, modTimeBytes);
                 int modDateBytes = is.readUnsignedShort();
+                System.out.printf("Mod date bytes %d or %08x\n", modDateBytes, modDateBytes);
                 int crc32 = is.readInt();
                 int compSize = is.readInt();
                 int uncompSize = is.readInt();
@@ -95,7 +99,9 @@ final class ZipCatalogBuilder {
                 final String comment = new String(commentBytes, "US-ASCII");
                 final ZipEntryImpl entry = new ZipEntryImpl(name, comment, localHeaderOffs, uncompSize & 0xffffffffL, compSize & 0xffffffffL, crc32, type, 0L, method, extraBytes);
                 allEntries.add(entry);
-                entryMap.put(name, entry);
+                if (! entryMap.containsKey(name) && name.length() > 0) {
+                    entryMap.put(name, entry);
+                }
                 // next sig
                 sig = is.readInt();
             }
@@ -148,7 +154,7 @@ final class ZipCatalogBuilder {
                 return byNameMap;
             }
 
-            public Iterable<ZipEntry> allEntries() {
+            public Collection<ZipEntry> allEntries() {
                 return allEntries;
             }
         };
