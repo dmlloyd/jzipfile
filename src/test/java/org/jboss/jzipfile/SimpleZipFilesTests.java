@@ -22,12 +22,14 @@
 
 package org.jboss.jzipfile;
 
-import org.testng.annotations.Test;
-import static org.testng.AssertJUnit.*;
-import java.io.IOException;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+
+import static org.testng.AssertJUnit.assertFalse;
+import static org.testng.AssertJUnit.assertTrue;
+import org.testng.annotations.Test;
 
 @Test
 public final class SimpleZipFilesTests {
@@ -43,30 +45,25 @@ public final class SimpleZipFilesTests {
     }
 
     public void testStored() throws IOException {
-        final File file = testFile("single-stored.zip");
-        final ZipCatalog catalog = Zip.readCatalog(file);
-        final Iterator<ZipEntry> i = catalog.allEntries().iterator();
-        assertTrue("Missing entry", i.hasNext());
-        final ZipEntry entry = i.next();
-        assertFalse("Extra entry", i.hasNext());
-        // now open it
-        final InputStream inputStream = Zip.openEntry(file, entry);
-        // read a few bytes
-        inputStream.read(new byte[64]);
-        inputStream.close();
+       final File file = testFile("single-stored.zip");
+       testZipFile(file);
     }
 
-    public void testDeflated() throws IOException {
+   public void testDeflated() throws IOException {
         final File file = testFile("single-deflated.zip");
-        final ZipCatalog catalog = Zip.readCatalog(file);
-        final Iterator<ZipEntry> i = catalog.allEntries().iterator();
-        assertTrue("Missing entry", i.hasNext());
-        final ZipEntry entry = i.next();
-        assertFalse("Extra entry", i.hasNext());
-        // now open it
-        final InputStream inputStream = Zip.openEntry(file, entry);
-        // read a few bytes
-        inputStream.read(new byte[64]);
-        inputStream.close();
+        testZipFile(file);
     }
+
+   protected void testZipFile(File file) throws IOException {
+      final ZipCatalog catalog = Zip.readCatalog(file);
+      final Iterator<ZipEntry> i = catalog.allEntries().iterator();
+      assertTrue("Missing entry", i.hasNext());
+      final ZipEntry entry = i.next();
+      assertFalse("Extra entry", i.hasNext());
+      // now open it
+      final InputStream inputStream = Zip.openEntry(file, entry);
+      // read a few bytes
+      inputStream.read(new byte[64]);
+      inputStream.close();
+   }
 }
