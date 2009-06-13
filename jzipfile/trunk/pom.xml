@@ -26,7 +26,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.jboss.jzipfil</groupId>
+    <groupId>org.jboss.jzipfile</groupId>
     <artifactId>jzipfile</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
