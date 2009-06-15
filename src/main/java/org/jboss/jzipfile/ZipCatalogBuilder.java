@@ -28,9 +28,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.Collection;
+import java.util.GregorianCalendar;
 import java.util.zip.ZipException;
 import java.io.InputStream;
 import java.io.IOException;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 final class ZipCatalogBuilder {
     private final Map<String, ZipEntry> entryMap = new LinkedHashMap<String, ZipEntry>();
@@ -56,18 +59,27 @@ final class ZipCatalogBuilder {
             while (sig == 0x02014b50) {
                 // central directory file header (0..n)
                 is.readUnsignedShort(); // madeBy
-                int needed = is.readUnsignedShort();
+                final int needed = is.readUnsignedShort();
                 if (needed > 20) {
                     throw new ZipException("Need a later version to extract");
                 }
                 is.readUnsignedShort(); // gpbits
                 final ZipCompressionMethod method = ZipCompressionMethod.getMethod(is.readUnsignedShort());
-                int modTimeBytes = is.readUnsignedShort();
-                int modDateFirst = is.readUnsignedByte();
-                int year = 1980 + ((modDateFirst >> 1) & 0x7f);
-                int modDateSecond = is.readUnsignedByte();
-                int month = modDateFirst << 3 & 0x8 | modDateFirst >> 5;
-                int day = modDateSecond & 0x1f;
+                final int modTimeRaw = is.readUnsignedShort();
+                final int modDateRaw = is.readUnsignedShort();
+
+                final int hour = min(modTimeRaw >> 11, 23);
+                final int minute = min(modTimeRaw >> 5 & 0x3f, 59);
+                final int second = min(modTimeRaw & 0x1f, 59);
+
+                final int year = 1980 + (modDateRaw >> 9);
+                // Months are from 1-12
+                final int month = max(1, min(12, modDateRaw >> 5 & 0x0f));
+                // Days might roll over; if so, let the calendar deal with it
+                final int day = modDateRaw & 0x1f;
+
+                // convert to millis
+                final long modTime = new GregorianCalendar(year, month - 1, day, hour, minute, second).getTimeInMillis();
 
                 int crc32 = is.readInt();
                 int compSize = is.readInt();
@@ -100,7 +112,7 @@ final class ZipCatalogBuilder {
                     type = ZipEntryType.FILE;
                 }
                 final String comment = new String(commentBytes, "US-ASCII");
-                final ZipEntryImpl entry = new ZipEntryImpl(name, comment, localHeaderOffs, uncompSize & 0xffffffffL, compSize & 0xffffffffL, crc32, type, 0L, method, extraBytes);
+                final ZipEntryImpl entry = new ZipEntryImpl(name, comment, localHeaderOffs, uncompSize & 0xffffffffL, compSize & 0xffffffffL, crc32, type, modTime, method, extraBytes);
                 allEntries.add(entry);
                 if (! entryMap.containsKey(name) && name.length() > 0) {
                     entryMap.put(name, entry);

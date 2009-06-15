@@ -27,8 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 
-import static org.testng.AssertJUnit.assertFalse;
-import static org.testng.AssertJUnit.assertTrue;
+import static org.testng.AssertJUnit.*;
 import org.testng.annotations.Test;
 
 @Test
@@ -46,24 +45,29 @@ public final class SimpleZipFilesTests {
 
     public void testStored() throws IOException {
        final File file = testFile("single-stored.zip");
-       testZipFile(file);
+       testZipFile(file, 1244852648000L);
     }
 
    public void testDeflated() throws IOException {
         final File file = testFile("single-deflated.zip");
-        testZipFile(file);
+        testZipFile(file, 1244852648000L);
     }
 
-   protected void testZipFile(File file) throws IOException {
-      final ZipCatalog catalog = Zip.readCatalog(file);
-      final Iterator<ZipEntry> i = catalog.allEntries().iterator();
-      assertTrue("Missing entry", i.hasNext());
-      final ZipEntry entry = i.next();
-      assertFalse("Extra entry", i.hasNext());
-      // now open it
-      final InputStream inputStream = Zip.openEntry(file, entry);
-      // read a few bytes
-      inputStream.read(new byte[64]);
-      inputStream.close();
-   }
+    protected void testZipFile(File file, long expectedModTime) throws IOException {
+        final ZipCatalog catalog = Zip.readCatalog(file);
+        final Iterator<ZipEntry> i = catalog.allEntries().iterator();
+        assertTrue("Missing entry", i.hasNext());
+        final ZipEntry entry = i.next();
+        assertFalse("Extra entry", i.hasNext());
+
+        // check the mod time
+        assertEquals("Dates do not match", expectedModTime, entry.getModificationTime());
+
+        // now open it
+        final InputStream inputStream = Zip.openEntry(file, entry);
+
+        // read a few bytes
+        inputStream.read(new byte[64]);
+        inputStream.close();
+    }
 }
