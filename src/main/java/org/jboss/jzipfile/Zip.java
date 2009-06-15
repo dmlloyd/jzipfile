@@ -25,7 +25,6 @@ package org.jboss.jzipfile;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.FileInputStream;
 import java.io.RandomAccessFile;
 import java.io.DataInput;
 import java.io.FileOutputStream;
@@ -33,6 +32,9 @@ import java.io.Closeable;
 import java.util.zip.ZipException;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.Inflater;
+import java.util.GregorianCalendar;
+import static java.lang.Math.min;
+import static java.lang.Math.max;
 
 /**
  * Zip file manipulation methods.
@@ -133,8 +135,8 @@ public final class Zip {
 
     /**
      * Read the zip catalog referred to by the given input stream, which is pointed at the
-     * start of the catalog (also known as the "central directory").  <b>Note:</b> the passed in
-     * {@code InputStream} will be used and closed by this method.
+     * start of the catalog (also known as the "central directory"), normally located near the <b>end</b> of the
+     * zip file.  <b>Note:</b> the passed in {@code InputStream} will be used and closed by this method.
      *
      * @param inputStream the input stream from which to build a catalog
      * @return the built catalog
@@ -174,7 +176,7 @@ public final class Zip {
     }
 
     /**
-     * Open a zip entry.  The given input stream must be located at the start of the zip entry's data.  When the
+     * Open a zip entry.  The given input stream must be located at the start of the zip entry's local header.  When the
      * returned input stream is closed, the provided input stream will be closed as well.
      *
      * @param inputStream the input stream
@@ -187,14 +189,36 @@ public final class Zip {
         try {
             // read the local file header...
             final ZipDataInputStream zdis = inputStream instanceof ZipDataInputStream ? (ZipDataInputStream) inputStream : new ZipDataInputStream(inputStream);
-            readLocalFile(zdis, zipEntry);
-            switch (zipEntry.getEntryType()) {
+            readLocalFileForEntry(zdis, zipEntry);
+            ok = true;
+            return openEntryData(inputStream, zipEntry);
+        } finally {
+            if (! ok) safeClose(inputStream);
+        }
+    }
+
+    /**
+     * Open a zip entry's raw data.  The given input stream must be located at the start of the zip entry's actual
+     * compressed data (that is, after the local file header).  When the returned input stream is closed, the provided
+     * input stream will be closed as well.
+     *
+     * @param inputStream the input stream
+     * @param zipEntry the zip entry
+     * @return an uncompressing input stream
+     * @throws IOException if an I/O error occurs
+     */
+    public static InputStream openEntryData(InputStream inputStream, ZipEntry zipEntry) throws IOException {
+        boolean ok = false;
+        try {
+            final ZipEntryType entryType = zipEntry.getEntryType();
+            switch (entryType) {
                 case FILE: break;
                 default: {
-                    throw new ZipException("Attempt to open a zip entry with an unsupported type");
+                    throw new ZipException("Attempt to open a zip entry '" + zipEntry.getName() + "' with an unsupported type '" + entryType + "'");
                 }
             }
-            switch (zipEntry.getCompressionMethod()) {
+            final ZipCompressionMethod compressionMethod = zipEntry.getCompressionMethod();
+            switch (compressionMethod) {
                 case STORE: {
                     final LimitedInputStream is = new LimitedInputStream(inputStream, zipEntry.getCompressedSize());
                     ok = true;
@@ -206,13 +230,13 @@ public final class Zip {
                     return is;
                 }
             }
-            throw new ZipException("Unsupported compression algorithm " + zipEntry.getCompressionMethod());
+            throw new ZipException("Unsupported compression algorithm " + compressionMethod);
         } finally {
             if (! ok) safeClose(inputStream);
         }
     }
 
-    private static void readLocalFile(final ZipDataInputStream is, final ZipEntry entry) throws IOException {
+    private static void readLocalFileForEntry(final ZipDataInputStream is, final ZipEntry entry) throws IOException {
         // main header
         final int sig = is.readInt();
         if (sig != 0x04034b50) {
@@ -300,5 +324,18 @@ public final class Zip {
         } catch (IOException e) {
             // eat
         }
+    }
+
+    static long getTimestamp(final int rawTime, final int rawDate) {
+        final int hour = min(rawTime >> 11, 23);
+        final int minute = min(rawTime >> 5 & 0x3f, 59);
+        final int second = min(rawTime & 0x1f, 59);
+        final int year = 1980 + (rawDate >> 9);
+        // Months are from 1-12
+        final int month = max(1, min(12, rawDate >> 5 & 0x0f));
+        // Days might roll over; if so, let the calendar deal with it
+        final int day = rawDate & 0x1f;
+        // convert to millis
+        return new GregorianCalendar(year, month - 1, day, hour, minute, second).getTimeInMillis();
     }
 }
