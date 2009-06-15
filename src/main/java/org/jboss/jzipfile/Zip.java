@@ -329,7 +329,8 @@ public final class Zip {
     static long getTimestamp(final int rawTime, final int rawDate) {
         final int hour = min(rawTime >> 11, 23);
         final int minute = min(rawTime >> 5 & 0x3f, 59);
-        final int second = min(rawTime & 0x1f, 59);
+        // two-second resolution
+        final int second = min((rawTime & 0x1f) << 1, 59);
         final int year = 1980 + (rawDate >> 9);
         // Months are from 1-12
         final int month = max(1, min(12, rawDate >> 5 & 0x0f));
