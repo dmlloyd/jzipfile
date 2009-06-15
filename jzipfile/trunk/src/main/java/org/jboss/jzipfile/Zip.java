@@ -158,9 +158,9 @@ public final class Zip {
      * @throws IOException if an I/O error occurs
      */
     public static InputStream openEntry(File zipFile, ZipEntry zipEntry) throws IOException {
-        final FileInputStream fis = new FileInputStream(zipFile);
-        new ZipDataInputStream(fis).skipFully(zipEntry.getOffset());
-        return openEntry(fis, zipEntry);
+        final RandomAccessFile raf = new RandomAccessFile(zipFile, "r");
+        raf.seek(zipEntry.getOffset());
+        return openEntry(new RandomAccessInputStream(raf), zipEntry);
     }
 
     /**
