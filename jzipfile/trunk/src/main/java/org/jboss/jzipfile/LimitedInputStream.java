@@ -71,7 +71,7 @@ class LimitedInputStream extends InputStream {
     }
 
     public int available() throws IOException {
-        return delegate.available();
+        return (int) Math.min(delegate.available(), limit);
     }
 
     public void close() throws IOException {
