@@ -75,7 +75,11 @@ public final class Zip {
                 // OK, let's back off incrementally, starting from 64 bytes out and going up by a factor of 4 each time
                 int spos = 64;
                 int lim = 64 - 22;
-                raf.seek(len - 64);
+                if (len < 64) {
+                    raf.seek(0);
+                } else {
+                    raf.seek(len - 64);
+                }
                 while (! catScan(raf, lim)) {
                     int newSpos = spos << 2;
                     lim = newSpos - spos;
@@ -83,7 +87,13 @@ public final class Zip {
                     if (spos >= 65536) {
                         throw new ZipException("No directory found");
                     }
-                    raf.seek(len - spos);
+                    if (spos > len) {
+                        // check from the very start of the file
+                        spos = 65536;
+                        raf.seek(0);
+                    } else {
+                        raf.seek(len - spos);
+                    }
                 }
             }
             // OK, the EOD was located.  Now read it to find the start of the directory
