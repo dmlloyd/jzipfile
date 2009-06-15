@@ -26,6 +26,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
+import java.util.GregorianCalendar;
+import java.util.Calendar;
 
 import static org.testng.AssertJUnit.*;
 import org.testng.annotations.Test;
@@ -45,12 +47,12 @@ public final class SimpleZipFilesTests {
 
     public void testStored() throws IOException {
        final File file = testFile("single-stored.zip");
-       testZipFile(file, 1244852648000L);
+       testZipFile(file, new GregorianCalendar(2009, Calendar.JUNE, 12, 19, 24, 16).getTimeInMillis());
     }
 
    public void testDeflated() throws IOException {
         final File file = testFile("single-deflated.zip");
-        testZipFile(file, 1244852648000L);
+        testZipFile(file, new GregorianCalendar(2009, Calendar.JUNE, 12, 19, 24, 16).getTimeInMillis());
     }
 
     protected void testZipFile(File file, long expectedModTime) throws IOException {
