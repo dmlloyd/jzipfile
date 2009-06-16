@@ -24,6 +24,7 @@ package org.jboss.jzipfile;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.EOFException;
 import static java.lang.StrictMath.min;
 
 class LimitedInputStream extends InputStream {
@@ -37,12 +38,15 @@ class LimitedInputStream extends InputStream {
     }
 
     public int read() throws IOException {
-        if (limit > 0) {
+        if (limit > 0) try {
             final int b = delegate.read();
             if (b == -1) {
                 limit = 0;
             }
             return b;
+        } catch (EOFException ex) {
+            limit = 0;
+            // fall out
         }
         return -1;
     }
@@ -55,7 +59,13 @@ class LimitedInputStream extends InputStream {
         if (limit == 0) {
             return -1;
         }
-        final int cnt = delegate.read(b, off, (int)min(limit, len));
+        final int cnt;
+        try {
+            cnt = delegate.read(b, off, (int)min(limit, len));
+        } catch (EOFException ex) {
+            limit = 0;
+            return -1;
+        }
         if (cnt > 0) {
             limit -= (long)cnt;
         } else {
