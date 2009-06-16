@@ -106,7 +106,7 @@ final class ZipDataInputStream extends InputStream implements DataInput {
     public long readLong() throws IOException {
         int a = readInt();
         int b = readInt();
-        return ((long)a) | ((long)b) << 0x20L;
+        return (long) a | (long) b << 0x20L;
     }
 
     public int readInt() throws IOException {
@@ -117,7 +117,7 @@ final class ZipDataInputStream extends InputStream implements DataInput {
         if (a == -1 || b == -1 || c == -1 || d == -1) {
             throw new EOFException();
         }
-        return a | (b << 0x8) | (c << 0x10) | (d << 0x18);
+        return a | b << 0x8 | c << 0x10 | d << 0x18;
     }
 
     public int readUnsignedShort() throws IOException {
@@ -179,6 +179,6 @@ final class ZipDataInputStream extends InputStream implements DataInput {
     }
 
     public String readUTF() throws IOException {
-        return null;
+        throw new UnsupportedOperationException();
     }
 }
