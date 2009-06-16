@@ -28,7 +28,7 @@
 
     <groupId>org.jboss.jzipfile</groupId>
     <artifactId>jzipfile</artifactId>
-    <version>1.0.0.CR1</version>
+    <version>1.0.0.CR2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
