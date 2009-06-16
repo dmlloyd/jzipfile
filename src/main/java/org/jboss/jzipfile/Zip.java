@@ -143,9 +143,13 @@ public final class Zip {
      * @throws IOException if an I/O error occurs
      */
     public static ZipCatalog readCatalog(InputStream inputStream) throws IOException {
-        final ZipCatalogBuilder builder = new ZipCatalogBuilder();
-        builder.readDirectory(inputStream);
-        return builder.getZipCatalog();
+        try {
+            final ZipCatalogBuilder builder = new ZipCatalogBuilder();
+            builder.readDirectory(inputStream);
+            return builder.getZipCatalog();
+        } finally {
+            Zip.safeClose(inputStream);
+        }
     }
 
     /**
@@ -171,8 +175,15 @@ public final class Zip {
      */
     public static InputStream openEntry(File zipFile, ZipEntry zipEntry) throws IOException {
         final RandomAccessFile raf = new RandomAccessFile(zipFile, "r");
-        raf.seek(zipEntry.getOffset());
-        return openEntry(new RandomAccessInputStream(raf), zipEntry);
+        boolean ok = false;
+        try {
+            raf.seek(zipEntry.getOffset());
+            final InputStream is = openEntry(new RandomAccessInputStream(raf), zipEntry);
+            ok = true;
+            return is;
+        } finally {
+            if (! ok) Zip.safeClose(raf);
+        }
     }
 
     /**
