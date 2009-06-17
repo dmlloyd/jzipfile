@@ -290,7 +290,7 @@ public final class Zip {
         if (! destDir.isDirectory()) {
             throw new IOException("Destination is not a directory");
         }
-        final byte[] buf = new byte[16384];
+        final byte[] buf = new byte[65536];
         final ZipCatalog catalog = readCatalog(zipFile);
         for (ZipEntry zipEntry : catalog.allEntries()) {
             final String name = zipEntry.getName();
