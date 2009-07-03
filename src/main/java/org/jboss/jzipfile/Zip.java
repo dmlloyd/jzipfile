@@ -33,10 +33,6 @@ import java.util.zip.ZipException;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.Inflater;
 import java.util.GregorianCalendar;
-import java.util.Iterator;
-import java.util.Collections;
-import java.util.Set;
-import java.util.HashSet;
 import static java.lang.Math.min;
 import static java.lang.Math.max;
 
@@ -294,28 +290,18 @@ public final class Zip {
         if (! destDir.isDirectory()) {
             throw new IOException("Destination is not a directory");
         }
-        final byte[] buf = new byte[65536];
+        final byte[] buf = new byte[16384];
         final ZipCatalog catalog = readCatalog(zipFile);
-        final Set<String> createdPaths = new HashSet<String>(256);
         for (ZipEntry zipEntry : catalog.allEntries()) {
             final String name = zipEntry.getName();
             final ZipEntryType entryType = zipEntry.getEntryType();
             if (entryType == ZipEntryType.DIRECTORY) {
-                for (String path : parentPaths(name)) {
-                    if (createdPaths.add(path)) {
-                        new File(destDir, path).mkdir();
-                    }
-                }
+                new File(destDir, name).mkdirs();
             } else if (entryType == ZipEntryType.FILE) {
                 final File file = new File(destDir, name).getCanonicalFile();
-                final Iterator<String> it = parentPaths(name).iterator();
-                while (it.hasNext()) {
-                    String path = it.next();
-                    if (it.hasNext()) {
-                        if (createdPaths.add(path)) {
-                            new File(destDir, path).mkdir();
-                        }
-                    }
+                final File parentFile = file.getParentFile();
+                if (parentFile != null) {
+                    parentFile.mkdirs();
                 }
                 file.delete();
                 final FileOutputStream fos = new FileOutputStream(file);
@@ -341,44 +327,6 @@ public final class Zip {
                 // skip unknown entry
             }
         }
-    }
-
-    private static Iterable<String> parentPaths(final String wholePath) {
-        final int len = wholePath.length();
-        int n = 0;
-        while (n < len && wholePath.charAt(n) == '/') {
-            n ++;
-        }
-        if (n == len) {
-            return Collections.emptySet();
-        }
-        final int start = n;
-        return new Iterable<String>() {
-            public Iterator<String> iterator() {
-                return new Iterator<String>() {
-                    private int i = start;
-
-                    public boolean hasNext() {
-                        return i < len;
-                    }
-
-                    public String next() {
-                        final int next = wholePath.indexOf('/', i);
-                        if (next == -1) {
-                            i = len;
-                            return wholePath.substring(start);
-                        } else {
-                            i = next + 1;
-                            return wholePath.substring(start, next);
-                        }
-                    }
-
-                    public void remove() {
-                        throw new UnsupportedOperationException();
-                    }
-                };
-            }
-        };
     }
 
     static void safeClose(final Closeable closeable) {
