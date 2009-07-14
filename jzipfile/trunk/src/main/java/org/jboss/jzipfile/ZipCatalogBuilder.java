@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.zip.ZipException;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.BufferedInputStream;
 
 final class ZipCatalogBuilder {
     private final Map<String, ZipEntry> entryMap = new LinkedHashMap<String, ZipEntry>();
@@ -40,10 +41,10 @@ final class ZipCatalogBuilder {
     }
 
     void readDirectory(InputStream is) throws IOException {
-        readDirectory(is instanceof ZipDataInputStream ? (ZipDataInputStream) is : new ZipDataInputStream(is));
+        readDirectory(is instanceof ZipDataInputStream ? (ZipDataInputStream) is : is instanceof BufferedInputStream ? new ZipDataInputStream(is) : new ZipDataInputStream(new BufferedInputStream(is)));
     }
 
-    void readDirectory(ZipDataInputStream is) throws IOException {
+    private void readDirectory(ZipDataInputStream is) throws IOException {
         final List<ZipEntry> allEntries = this.allEntries;
         final Map<String, ZipEntry> entryMap = this.entryMap;
         try {
