@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.HashSet;
 import static java.lang.Math.min;
 import static java.lang.Math.max;
+import com.jcraft.jzlib.ZInputStream;
 
 /**
  * Zip file manipulation methods.
@@ -240,7 +241,7 @@ public final class Zip {
                     return is;
                 }
                 case DEFLATE: {
-                    final LimitedInputStream is = new LimitedInputStream(new InflaterInputStream(new LimitedInputStream(inputStream, zipEntry.getCompressedSize()), new Inflater(true)), zipEntry.getSize());
+                    final LimitedInputStream is = new LimitedInputStream(new JZFInflaterStream(new LimitedInputStream(inputStream, zipEntry.getCompressedSize())), zipEntry.getSize());
                     ok = true;
                     return is;
                 }
@@ -401,5 +402,26 @@ public final class Zip {
         final int day = rawDate & 0x1f;
         // convert to millis
         return new GregorianCalendar(year, month - 1, day, hour, minute, second).getTimeInMillis();
+    }
+
+    private static final class JZFInflaterStream extends InflaterInputStream {
+        private final Inflater inf;
+
+        JZFInflaterStream(InputStream in) {
+            this(in, new Inflater(true));
+        }
+
+        public JZFInflaterStream(InputStream in, Inflater inf) {
+            super(in, inf, 4096);
+            this.inf = inf;
+        }
+
+        public void close() throws IOException {
+            try {
+                super.close();
+            } finally {
+                inf.end();
+            }
+        }
     }
 }
